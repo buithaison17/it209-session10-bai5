@@ -1,0 +1,46 @@
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: db-server
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
+      POSTGRES_USER: ${DB_USER:?DB_USER is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: alpine:3.20
+    container_name: app-container
+    restart: unless-stopped
+    command: ["sh", "-c", "while true; do sleep 3600; done"]
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:?DB_NAME is required}
+      DB_USER: ${DB_USER:?DB_USER is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      PORT: ${PORT:-8080}
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+volumes:
+  pgdata:
+
+networks:
+  backend-net:
+    driver: bridge
